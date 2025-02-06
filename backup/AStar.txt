@@ -1,0 +1,173 @@
+import sys
+import time
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+
+
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.cost = sys.maxsize
+
+
+class Map:
+    """
+        Map 的大小为 2^n * 2^n, n 为曲线的阶
+        x: [0, 2^n - 1] y: [0, 2^n - 1]
+    """
+
+    def __init__(self, n):
+        self.size = 2 ** n
+
+
+def save_image(plt):
+    millis = int(round(time.time() * 1000))
+    filename = './pics/' + str(millis) + '.png'
+    plt.savefig(filename)
+
+
+class AStar:
+    def __init__(self, mp: Map, start: Point, end: Point):
+        self.map = mp
+        self.open_set = []
+        self.close_set = []
+        self.st = start
+        self.en = end
+
+    def base_cost(self, p: Point):  # 当前点到起始点的代价
+        # Distance to start point
+        return abs(p.x - self.st.x) + abs(p.y - self.st.y)
+
+    def heuristic_cost(self, p: Point):  # 当前点到结束点的代价
+        # Distance to end point
+        return abs(p.x - self.en.x) + abs(p.y - self.en.y)
+
+    def total_cost(self, p: Point):
+        return self.base_cost(p) + self.heuristic_cost(p)
+
+    def is_valid_point(self, x, y):  # 无效点
+        if x < 0 or y < 0:
+            return False
+        if x >= self.map.size or y >= self.map.size:
+            return False
+        return True
+
+    def is_in_open_list(self, p: Point):
+        for point in self.open_set:
+            if point.x == p.x and point.y == p.y:
+                return True
+        return False
+
+    def is_in_close_list(self, p: Point):
+        for point in self.close_set:
+            if point.x == p.x and point.y == p.y:
+                return True
+        return False
+
+    def is_st_point(self, p: Point):
+        return p.x == self.st.x and p.y == self.st.y
+
+    def is_en_point(self, p: Point):
+        return p.x == self.en.x and p.y == self.en.y
+
+    def select_from_open_set(self):
+        selected_index = -1
+        min_cost = sys.maxsize
+        for ind, p in enumerate(self.open_set):
+            cost = self.total_cost(p)
+            if cost < min_cost:
+                min_cost = cost
+                selected_index = ind
+        return selected_index
+
+    def process_point(self, x, y, parent):
+        if not self.is_valid_point(x, y):
+            return
+        p = Point(x, y)
+        if self.is_in_close_list(p):
+            return
+        if not self.is_in_open_list(p):
+            p.parent = parent
+            p.cost = self.total_cost(p)
+            self.open_set.append(p)
+            print('Process Point [', p.x, ',', p.y, ']', ', cost: ', p.cost)
+
+    def build_path(self, p, ax, plt, start_time):
+        path = []
+        while True:
+            path.insert(0, p)  # Insert first
+            if self.is_st_point(p):
+                break
+            else:
+                p = p.parent
+        for p in path:
+            rec = Rectangle((p.x, p.y), 1, 1, color='g')
+            ax.add_patch(rec)
+            plt.draw()
+            save_image(plt)
+        end_time = time.time()
+        print('===== Algorithm finish in', int(end_time - start_time), ' seconds')
+
+    def run_algorithm(self, ax, plt):
+        start_time = time.time()
+
+        self.st.cost = 0
+        self.open_set.append(self.st)
+        while True:
+            index = self.select_from_open_set()
+            if index < 0:
+                print('No path found, algorithm failed!!!')
+                return
+            p = self.open_set[index]
+
+            rec = Rectangle((p.x, p.y), 1, 1, color='c')
+            ax.add_patch(rec)
+            save_image(plt)
+
+            if self.is_en_point(p):
+                return self.build_path(p, ax, plt, start_time)
+
+            del self.open_set[index]
+            self.close_set.append(p)
+
+            # Process all neighbors
+            x = p.x
+            y = p.y
+            self.process_point(x - 1, y, p)
+            self.process_point(x, y - 1, p)
+            self.process_point(x + 1, y, p)
+            self.process_point(x, y + 1, p)
+
+
+if __name__ == '__main__':
+    mp = Map(4)
+    start = Point(0, 0)
+    end = Point(12, 10)
+
+    # 画图设置
+    plt.figure(figsize=(5, 5))
+    ax = plt.gca()
+    ax.set_xlim([0, mp.size])
+    ax.set_ylim([0, mp.size])
+
+    for i in range(mp.size):
+        for j in range(mp.size):
+            rec = Rectangle((i, j), width=1, height=1, edgecolor='gray', facecolor='w')
+            ax.add_patch(rec)
+
+    rec = Rectangle((start.x, start.y), width=1, height=1, facecolor='b')
+    ax.add_patch(rec)
+    rec = Rectangle((end.x, end.y), width=1, height=1, facecolor='r')
+    ax.add_patch(rec)
+
+    plt.axis('equal')
+    plt.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+    # 运行
+    # astar = AStar(mp, start, end)
+    # astar.run_algorithm(ax, plt)
